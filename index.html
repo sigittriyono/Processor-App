@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Processor App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .step {
+            margin: 15px 0;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+        }
+
+        .step.active {
+            border-color: #667eea;
+        }
+
+        .step.completed {
+            border-color: #4CAF50;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .step.completed .step-number {
+            background: #4CAF50;
+        }
+
+        .step-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .file-input-container {
+            position: relative;
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 3px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-excel {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .excel-buttons {
+            display: inline-flex;
+            gap: 5px;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            display: block;
+        }
+
+        .preview-table thead,
+        .preview-table tbody {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .preview-table th,
+        .preview-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            word-wrap: break-word;
+        }
+
+        .preview-table th {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+
+        .status-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .db-config {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .completion-message {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #4CAF50;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .db-config {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Data Processor App</h1>
+        
+        <!-- Step 1: Import Dataset -->
+        <div class="step" id="step1">
+            <div class="step-header">
+                <div class="step-number">1</div>
+                <div class="step-title">Import Dataset CSV</div>
+            </div>
+            <div class="file-input-container">
+                <input type="file" id="csvFile" class="file-input" accept=".csv" />
+                <label for="csvFile" class="file-input-label">📁 Pilih File CSV</label>
+            </div>
+            <div id="fileInfo"></div>
+            <div id="csvPreview"></div>
+        </div>
+
+        <!-- Step 2: Data Cleaning -->
+        <div class="step" id="step2">
+            <div class="step-header">
+                <div class="step-number">2</div>
+                <div class="step-title">Data Cleaning & Konversi ke Excel</div>
+            </div>
+            <button class="btn btn-warning" id="cleanDataBtn" disabled>Bersihkan Data</button>
+            <div class="excel-buttons">
+                <button class="btn btn-success" id="convertToXlsxBtn" disabled>Konversi ke XLSX</button>
+                <button class="btn btn-excel" id="convertToXlsBtn" disabled>Konversi ke XLS</button>
+            </div>
+            <div id="cleaningStatus"></div>
+            <div id="cleanedPreview"></div>
+        </div>
+
+        <!-- Step 3: Database Configuration -->
+        <div class="step" id="step3">
+            <div class="step-header">
+                <div class="step-number">3</div>
+                <div class="step-title">Konfigurasi Database PostgreSQL</div>
+            </div>
+            <div class="db-config">
+                <div class="form-group">
+                    <label for="dbHost">Host:</label>
+                    <input type="text" id="dbHost" value="localhost" />
+                </div>
+                <div class="form-group">
+                    <label for="dbPort">Port:</label>
+                    <input type="number" id="dbPort" value="5432" />
+                </div>
+                <div class="form-group">
+                    <label for="dbName">Database Name:</label>
+                    <input type="text" id="dbName" placeholder="nama_database" />
+                </div>
+                <div class="form-group">
+                    <label for="dbUser">Username:</label>
+                    <input type="text" id="dbUser" placeholder="username" />
+                </div>
+                <div class="form-group">
+                    <label for="dbPassword">Password:</label>
+                    <input type="password" id="dbPassword" placeholder="password" />
+                </div>
+                <div class="form-group">
+                    <label for="tableName">Nama Tabel:</label>
+                    <input type="text" id="tableName" placeholder="nama_tabel" />
+                </div>
+            </div>
+            <button class="btn btn-primary" id="testConnectionBtn">🔗 Test Koneksi</button>
+            <button class="btn btn-success" id="uploadToDbBtn" disabled>⬆️ Upload ke Database</button>
+            <div id="dbStatus"></div>
+            <div class="progress-bar" id="uploadProgress" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div id="completionMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = null;
+        let fileName = '';
+        let downloadedFiles = [];
+        const API_BASE = 'http://localhost:5000';
+
+        // Step 1: Import CSV with Python backend
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileName = file.name.replace('.csv', '');
+            
+            document.getElementById('fileInfo').innerHTML = `
+                <div class="status-info">
+                    <strong>File:</strong> ${file.name}<br>
+                    <strong>Ukuran:</strong> ${(file.size / 1024).toFixed(2)} KB<br>
+                    <strong>Status:</strong> Sending...
+                </div>
+            `;
+
+            // Upload to Python backend
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch(`${API_BASE}/upload_csv`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    sessionId = result.session_id;
+                    displayPreview(result.preview, 'csvPreview');
+                    
+                    document.getElementById('fileInfo').innerHTML = `
+                        <div class="status-success">
+                            <strong>File berhasil diproses ✅</strong><br>
+                            <strong>Jumlah baris:</strong> ${result.info.rows}<br>
+                            <strong>Jumlah kolom:</strong> ${result.info.columns}<br>
+                            <strong>Missing values:</strong> ${Object.values(result.info.missing_values).reduce((a, b) => a + b, 0)} total<br>
+                            <strong>Data types detected:</strong> ${Object.keys(result.info.dtypes).length} columns analyzed
+                        </div>
+                    `;
+
+                    // Activate step 1 and enable step 2
+                    document.getElementById('step1').classList.add('completed');
+                    document.getElementById('step2').classList.add('active');
+                    document.getElementById('cleanDataBtn').disabled = false;
+                } else {
+                    document.getElementById('fileInfo').innerHTML = `
+                        <div class="status-error">
+                            <strong>Error:</strong> ${result.message}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('fileInfo').innerHTML = `
+                    <div class="status-error">
+                        <strong>Error:</strong> Tidak dapat terhubung ke Python backend. Pastikan server Flask berjalan di localhost:5000
+                    </div>
+                `;
+                console.error('Error:', error);
+            });
+        });
+
+        // Step 2: Advanced Data Cleaning with Python
+        document.getElementById('cleanDataBtn').addEventListener('click', function() {
+            if (!sessionId) {
+                alert('Please upload a CSV file first!');
+                return;
+            }
+
+            document.getElementById('cleaningStatus').innerHTML = `
+                <div class="status-info">
+                    <strong>Menjalankan Data Cleaning ⚙️</strong><br>
+                </div>
+            `;
+
+            // Advanced cleaning options
+            const cleaningOptions = {
+                remove_empty_rows: true,
+                strip_whitespace: true,
+                handle_missing: true,
+                remove_duplicates: true,
+                optimize_dtypes: true,
+                remove_outliers: false  // Optional, bisa diaktifkan
+            };
+
+            fetch(`${API_BASE}/clean_data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    options: cleaningOptions
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    displayPreview(result.preview, 'cleanedPreview', 'Data Setelah Cleaning:');
+                    
+                    const report = result.report;
+                    let stepsHtml = '';
+                    report.steps.forEach(step => {
+                        if (step.step === 'Remove empty rows') {
+                            stepsHtml += `<li><strong>${step.step}:</strong> ${step.removed} baris dihapus</li>`;
+                        } else if (step.step === 'Strip whitespace') {
+                            stepsHtml += `<li><strong>${step.step}:</strong> ${step.affected_columns} kolom diproses</li>`;
+                        } else if (step.step === 'Handle missing values') {
+                            stepsHtml += `<li><strong>${step.step}:</strong> ${step.filled} nilai kosong diisi</li>`;
+                        } else if (step.step === 'Remove duplicates') {
+                            stepsHtml += `<li><strong>${step.step}:</strong> ${step.removed} duplikat dihapus</li>`;
+                        } else if (step.step === 'Optimize data types') {
+                            stepsHtml += `<li><strong>${step.step}:</strong> ${step.optimized_columns} kolom dioptimasi</li>`;
+                        }
+                    });
+                    
+                    document.getElementById('cleaningStatus').innerHTML = `
+                        <div class="status-success">
+                            <strong>Data Cleaning Selesai! ✨</strong><br>
+                            <strong>Baris asli:</strong> ${report.original_rows}<br>
+                            <strong>Baris setelah cleaning:</strong> ${report.final_rows}<br>
+                            <strong>Total baris dihapus:</strong> ${report.total_removed}<br>
+                            <br><strong>Proses yang dilakukan:</strong>
+                            <ul>${stepsHtml}</ul>
+                            <strong>Missing values tersisa:</strong> ${Object.values(result.info.missing_values).reduce((a, b) => a + b, 0)}
+                        </div>
+                    `;
+
+                    document.getElementById('convertToXlsxBtn').disabled = false;
+                    document.getElementById('convertToXlsBtn').disabled = false;
+                } else {
+                    document.getElementById('cleaningStatus').innerHTML = `
+                        <div class="status-error">
+                            <strong>Error:</strong> ${result.message}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('cleaningStatus').innerHTML = `
+                    <div class="status-error">
+                        <strong>Error:</strong> Tidak dapat terhubung ke Python
+                    </div>
+                `;
+                console.error('Error:', error);
+            });
+        });
+
+        // Convert to XLSX
+        document.getElementById('convertToXlsxBtn').addEventListener('click', function() {
+            convertToExcel('xlsx');
+        });
+
+        // Convert to XLS
+        document.getElementById('convertToXlsBtn').addEventListener('click', function() {
+            convertToExcel('xls');
+        });
+
+        function convertToExcel(format) {
+            if (!sessionId) {
+                alert('Please clean the data first!');
+                return;
+            }
+
+            const formatUpper = format.toUpperCase();
+            const statusDiv = document.getElementById('cleaningStatus');
+            
+            statusDiv.innerHTML += `
+                <div class="status-info">
+                    <strong>Mengkonversi ke ${formatUpper}...</strong> 📊<br>
+                </div>
+            `;
+
+            fetch(`${API_BASE}/download_excel`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    format: format
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                } else {
+                    throw new Error(`Failed to download ${formatUpper} file`);
+                }
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `${fileName}_cleaned.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                // Track downloaded files
+                downloadedFiles.push({
+                    format: formatUpper,
+                    filename: `${fileName}_cleaned.${format}`
+                });
+
+                statusDiv.innerHTML += `
+                    <div class="status-success">
+                        <strong>✅ ${formatUpper} file berhasil dibuat dan diunduh!</strong><br>
+                        <strong>Nama file:</strong> ${fileName}_cleaned.${format}<br>
+                        <strong>Format:</strong> ${formatUpper === 'XLSX' ? 'Excel 2007+ (modern)' : 'Excel 97-2003 (klasik)'}<br>
+                    </div>
+                `;
+
+                // Activate step 3 after first successful conversion
+                if (!document.getElementById('step2').classList.contains('completed')) {
+                    document.getElementById('step2').classList.add('completed');
+                    document.getElementById('step3').classList.add('active');
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML += `
+                    <div class="status-error">
+                        <strong>Error:</strong> Gagal mengunduh file ${formatUpper}
+                    </div>
+                `;
+                console.error('Error:', error);
+            });
+        }
+
+        // Step 3: Real Database Connection with Python
+        document.getElementById('testConnectionBtn').addEventListener('click', function() {
+            const dbConfig = {
+                host: document.getElementById('dbHost').value,
+                port: document.getElementById('dbPort').value,
+                database: document.getElementById('dbName').value,
+                username: document.getElementById('dbUser').value,
+                password: document.getElementById('dbPassword').value
+            };
+
+            document.getElementById('dbStatus').innerHTML = `
+                <div class="status-info">
+                    Testing PostgreSQL connection... 🔌
+                </div>
+            `;
+
+            fetch(`${API_BASE}/test_connection`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    db_config: dbConfig
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    document.getElementById('dbStatus').innerHTML = `
+                        <div class="status-success">
+                            <strong>✅ Koneksi PostgreSQL berhasil!</strong><br>
+                            Terhubung ke: ${dbConfig.database}@${dbConfig.host}:${dbConfig.port}<br>
+                            <strong>Driver:</strong> Python psycopg2<br>
+                            <strong>Status:</strong> Ready untuk upload data
+                        </div>
+                    `;
+                    document.getElementById('uploadToDbBtn').disabled = false;
+                } else {
+                    document.getElementById('dbStatus').innerHTML = `
+                        <div class="status-error">
+                            <strong>❌ Koneksi gagal:</strong> ${result.message}<br>
+                            Periksa kembali konfigurasi database Anda
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('dbStatus').innerHTML = `
+                    <div class="status-error">
+                        <strong>Error:</strong> Tidak dapat terhubung ke Python backend
+                    </div>
+                `;
+                console.error('Error:', error);
+            });
+        });
+
+        // Upload to Database with Python
+        document.getElementById('uploadToDbBtn').addEventListener('click', function() {
+            if (!sessionId) {
+                alert('Please clean the data first!');
+                return;
+            }
+
+            const tableName = document.getElementById('tableName').value;
+            if (!tableName) {
+                alert('Harap masukkan nama tabel!');
+                return;
+            }
+
+            const dbConfig = {
+                host: document.getElementById('dbHost').value,
+                port: document.getElementById('dbPort').value,
+                database: document.getElementById('dbName').value,
+                username: document.getElementById('dbUser').value,
+                password: document.getElementById('dbPassword').value,
+                table_name: tableName
+            };
+
+            // Show progress bar
+            document.getElementById('uploadProgress').style.display = 'block';
+            const progressFill = document.getElementById('progressFill');
+            
+            document.getElementById('dbStatus').innerHTML += `
+                <div class="status-info">
+                    Uploading data... ⬆️<br>
+                    Creating table dan inserting data...
+                </div>
+            `;
+
+            // Simulate progress while uploading
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 15;
+                if (progress <= 90) {
+                    progressFill.style.width = progress + '%';
+                }
+            }, 200);
+
+            fetch(`${API_BASE}/upload_database`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    db_config: dbConfig
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                
+                if (result.status === 'success') {
+                    document.getElementById('dbStatus').innerHTML += `
+                        <div class="status-success">
+                            <strong>✅ Upload berhasil!</strong><br>
+                            <strong>Rows uploaded:</strong> ${result.rows_uploaded}<br>
+                            <strong>Table:</strong> ${tableName}<br>
+                            <strong>Method:</strong> Batch insert dengan execute_values()<br>
+                            <strong>Auto-created:</strong> Table dengan optimal data types<br>
+                            ${result.message}
+                        </div>
+                    `;
+
+                    // Mark step 3 as completed and show completion message
+                    document.getElementById('step3').classList.add('completed');
+                    
+                    // Show completion message
+                    showCompletionMessage(result.rows_uploaded, tableName);
+                } else {
+                    document.getElementById('dbStatus').innerHTML += `
+                        <div class="status-error">
+                            <strong>❌ Upload gagal:</strong> ${result.message}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                document.getElementById('dbStatus').innerHTML += `
+                    <div class="status-error">
+                        <strong>Error:</strong> Tidak dapat terhubung ke Python backend
+                    </div>
+                `;
+                console.error('Error:', error);
+            });
+        });
+
+        function displayPreview(preview, containerId, title = 'Preview Data:') {
+            if (!preview || !preview.data || preview.data.length === 0) return;
+
+            const container = document.getElementById(containerId);
+            const headers = preview.columns;
+            const data = preview.data;
+
+            let html = `<h4>${title}</h4>
+                       <div style="overflow-x: auto;">
+                       <table class="preview-table">
+                         <thead><tr>`;
+            
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += `</tr></thead><tbody>`;
+
+            data.forEach(row => {
+                html += '<tr>';
+                row.forEach(cell => {
+                    html += `<td>${cell || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += `</tbody></table></div>`;
+            
+            if (data.length >= 10) {
+                html += `<p><em>Menampilkan ${data.length} baris pertama</em></p>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function showCompletionMessage(rowsUploaded, tableName) {
+            const dbName = document.getElementById('dbName').value;
+            
+            let filesInfo = '';
+            if (downloadedFiles.length > 0) {
+                filesInfo = '<p><strong>📊 File Excel yang diunduh:</strong></p><ul>';
+                downloadedFiles.forEach(file => {
+                    filesInfo += `<li>${file.filename} (${file.format})</li>`;
+                });
+                filesInfo += '</ul>';
+            }
+            
+            document.getElementById('completionMessage').innerHTML = `
+                <div class="completion-message">
+                    <h3>🎉 Proses Berhasil Diselesaikan!</h3>
+                    <p><strong>✅ ${rowsUploaded} rows berhasil diupload ke database PostgreSQL</strong></p>
+                    <p><strong>🗄️ Tabel:</strong> ${tableName}</p>
+                    <p><strong>💾 Database:</strong> ${dbName}</p>
+                    ${filesInfo}
+                    <p style="margin-top: 15px; font-size: 1.1em;">
+                        <strong>🚀 Semua tahap telah berhasil diselesaikan dengan sukses!</strong>
+                    </p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
