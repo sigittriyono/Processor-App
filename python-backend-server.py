@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 import json
 
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
 
@@ -245,8 +246,16 @@ class DataProcessor:
         
         try:
             if format_type.lower() == 'xls':
-            # For XLS format (Excel 97-2003)
+            # Untuk format XLS (Excel 97-2003) - maksimal 65,536 baris
+                if len(self.df_cleaned) > 65536:
+                    return {
+                        'status': 'error', 
+                        'message': 'XLS format hanya mendukung maksimal 65,536 baris. Gunakan XLSX untuk dataset yang lebih besar.'
+                    }
+            
+                # Pandas akan otomatis menggunakan xlwt engine untuk .xls
                 self.df_cleaned.to_excel(file_path, index=False, engine='xlwt')
+                
             else:
             # For XLSX format (Excel 2007+)
                 self.df_cleaned.to_excel(file_path, index=False, engine='openpyxl')
