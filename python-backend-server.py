@@ -10,7 +10,6 @@ import uuid
 from datetime import datetime
 import json
 
-
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
 
@@ -72,19 +71,31 @@ class DataProcessor:
             return {'status': 'error', 'message': str(e)}
         
     def _convert_numpy_types(self, value):
-        """Convert numpy types to Python native types"""
+        """Convert numpy types to Python native types for JSON serialization"""
         if pd.isna(value) or value is None:
-            return None
+            return None  # Convert NaN to None for JSON
         elif isinstance(value, (np.integer, np.int64, np.int32, np.int16, np.int8)):
             return int(value)
         elif isinstance(value, (np.floating, np.float64, np.float32)):
+            if np.isnan(value) or np.isinf(value):
+                return None  # Handle NaN and infinity
             return float(value)
         elif isinstance(value, np.bool_):
             return bool(value)
         elif isinstance(value, bytes):
-            return value.decode('utf-8')
+            try:
+                return value.decode('utf-8')
+            except:
+                return str(value)
+        elif isinstance(value, (np.ndarray,)):
+            return value.tolist()
         else:
-            return value
+            # Handle other types that might not be JSON serializable
+            try:
+                json.dumps(value)  # Test if it's JSON serializable
+                return value
+            except:
+                return str(value)  # Convert to string if not serializable
     
     def clean_data(self, options):
         """Clean data based on options"""
@@ -228,15 +239,24 @@ class DataProcessor:
             return {'status': 'error', 'message': str(e)}
     
     def get_preview(self, df, num_rows=10):
-        """Get preview of dataframe"""
+        """Get preview of dataframe with proper JSON serialization"""
         if df is None or df.empty:
             return {'columns': [], 'data': []}
         
         preview_df = df.head(num_rows)
         
+        # Convert data to JSON-safe format
+        json_safe_data = []
+        for _, row in preview_df.iterrows():
+            row_data = []
+            for value in row:
+                converted_value = self._convert_numpy_types(value)
+                row_data.append(converted_value)
+            json_safe_data.append(row_data)
+        
         return {
             'columns': list(df.columns),
-            'data': preview_df.values.tolist()
+            'data': json_safe_data
         }
     
     def save_excel(self, file_path, format_type='xlsx'):
@@ -246,16 +266,8 @@ class DataProcessor:
         
         try:
             if format_type.lower() == 'xls':
-            # Untuk format XLS (Excel 97-2003) - maksimal 65,536 baris
-                if len(self.df_cleaned) > 65536:
-                    return {
-                        'status': 'error', 
-                        'message': 'XLS format hanya mendukung maksimal 65,536 baris. Gunakan XLSX untuk dataset yang lebih besar.'
-                    }
-            
-                # Pandas akan otomatis menggunakan xlwt engine untuk .xls
+            # For XLS format (Excel 97-2003)
                 self.df_cleaned.to_excel(file_path, index=False, engine='xlwt')
-                
             else:
             # For XLSX format (Excel 2007+)
                 self.df_cleaned.to_excel(file_path, index=False, engine='openpyxl')
@@ -416,6 +428,24 @@ class DataProcessor:
         except Exception as e:
             return {'status': 'error', 'message': f'Unexpected error: {str(e)}'}
 
+# Custom JSON encoder to handle numpy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            if np.isnan(obj) or np.isinf(obj):
+                return None
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif pd.isna(obj):
+            return None
+        return super().default(obj)
+
+# Modify Flask to use custom JSON encoder
+app.json_encoder = NumpyEncoder
+
 # API Routes
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
@@ -447,7 +477,10 @@ def upload_csv():
         result['session_id'] = session_id
     
     # Clean up temp file
-    os.remove(file_path)
+    try:
+        os.remove(file_path)
+    except:
+        pass  # Ignore if file doesn't exist
     
     return jsonify(result)
 
@@ -516,7 +549,8 @@ def test_connection():
             port=db_config['port'],
             database=db_config['database'],
             user=db_config['username'],
-            password=db_config['password']
+            password=db_config['password'],
+            connect_timeout=10
         )
         conn.close()
         return jsonify({'status': 'success', 'message': 'Connection successful'})
